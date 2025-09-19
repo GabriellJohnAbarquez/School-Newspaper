@@ -1,6 +1,9 @@
 <?php
 // PATH: ./writer/edit_article.php
 require_once __DIR__ . '/../classloader.php';
+$categoryObj = new Category($pdo);
+$categories = $categoryObj->getAllCategories();
+
 if (!$userObj->isLoggedIn()) { header("Location: login.php"); exit; }
 $article_id = $_GET['id'] ?? null;
 if (!$article_id) { header("Location: index.php"); exit; }
@@ -39,7 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Update article
-    $articleObj->updateArticle($article_id, $title, $content, $image_path);
+    $category_id = !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null;
+    $articleObj->updateArticle($article_id, $title, $content, $image_path, $category_id);
     $_SESSION['message'] = "Article updated successfully.";
     $_SESSION['status'] = '200';
     header("Location: index.php");
@@ -86,6 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <label>Change Image</label>
     <input type="file" name="image" class="form-control mb-2" accept="image/*">
     <input type="text" name="image_url" class="form-control" placeholder="Or paste image URL (optional)">
+  </div>
+  <div class="form-group">
+    <label>Category</label>
+    <select name="category_id" class="form-control" required>
+      <option value="">-- Select Category --</option>
+      <?php foreach ($categories as $cat): ?>
+        <option value="<?php echo $cat['category_id']; ?>"
+          <?php echo ($article['category_id'] == $cat['category_id']) ? 'selected' : ''; ?>>
+          <?php echo htmlspecialchars($cat['name']); ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
   </div>
   <button class="btn btn-primary">Update Article</button>
   <a href="index.php" class="btn btn-secondary">Cancel</a>

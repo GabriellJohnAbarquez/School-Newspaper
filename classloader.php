@@ -5,11 +5,17 @@
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/classes/User.php';
 require_once __DIR__ . '/classes/Article.php';
+require_once __DIR__ . '/classes/Category.php';
 
-if (session_status() === PHP_SESSION_NONE) session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// instantiate (these are used globally by pages)
+// instantiate DB first
 $databaseObj = new Database();
-$userObj = new User();
-$articleObj = new Article();
-?>
+$pdo = $databaseObj->getConnection(); // ✅ now $pdo exists
+
+// pass $pdo into your other classes if needed
+$userObj = new User($pdo);
+$articleObj = new Article($pdo);
+$categoryObj = new Category($pdo);

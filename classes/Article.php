@@ -4,32 +4,39 @@ require_once __DIR__ . '/../core/Database.php';
 
 class Article extends Database {
 
-    // Create a new article
-    public function createArticle($title, $content, $author_id, $image_path = null, $is_active = 0) {
-        $sql = "INSERT INTO articles (title, content, author_id, image_path, is_active) VALUES (?, ?, ?, ?, ?)";
-        return $this->executeNonQuery($sql, [$title, $content, $author_id, $image_path, (int)$is_active]);
+    /* ===================== ARTICLES ===================== */
+
+    // Create a new article (with optional category)
+    public function createArticle($title, $content, $author_id, $image_path = null, $is_active = 0, $category_id = null) {
+        $sql = "INSERT INTO articles (title, content, author_id, image_path, is_active, category_id) 
+                VALUES (?, ?, ?, ?, ?, ?)";
+        return $this->executeNonQuery($sql, [$title, $content, $author_id, $image_path, (int)$is_active, $category_id ?: null]);
     }
+
     // Get all articles or a single article by ID
     public function getArticles($id = null) {
         if ($id) {
-            $sql = "SELECT a.*, u.username, u.is_admin
+            $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                     FROM articles a
                     JOIN school_publication_users u ON a.author_id = u.user_id
+                    LEFT JOIN categories c ON a.category_id = c.category_id
                     WHERE a.article_id = ?";
             return $this->executeQuerySingle($sql, [$id]);
         }
-        $sql = "SELECT a.*, u.username, u.is_admin
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                 FROM articles a
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 ORDER BY a.created_at DESC";
         return $this->executeQuery($sql);
     }
 
     // Get only published articles
     public function getActiveArticles() {
-        $sql = "SELECT a.*, u.username, u.is_admin
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                 FROM articles a
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 WHERE a.is_active = 1
                 ORDER BY a.created_at DESC";
         return $this->executeQuery($sql);
@@ -37,25 +44,32 @@ class Article extends Database {
 
     // Get articles by a specific user
     public function getArticlesByUserID($user_id) {
-        $sql = "SELECT a.*, u.username, u.is_admin
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                 FROM articles a
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 WHERE a.author_id = ?
                 ORDER BY a.created_at DESC";
         return $this->executeQuery($sql, [$user_id]);
     }
 
-    // Update an article
-    // Update article
-    public function updateArticle($id, $title, $content, $image_path = null) {
+    // Update an article (with optional category)
+    public function updateArticle($article_id, $title, $content, $image_path = null, $category_id = null) {
+        $sql = "UPDATE articles SET title = ?, content = ?, category_id = ?";
+        $params = [$title, $content, $category_id];
+
         if ($image_path !== null) {
-            $sql = "UPDATE articles SET title = ?, content = ?, image_path = ? WHERE article_id = ?";
-            return $this->executeNonQuery($sql, [$title, $content, $image_path, $id]);
-        } else {
-            $sql = "UPDATE articles SET title = ?, content = ? WHERE article_id = ?";
-            return $this->executeNonQuery($sql, [$title, $content, $id]);
+            $sql .= ", image_path = ?";
+            $params[] = $image_path;
         }
+
+        $sql .= " WHERE article_id = ?";
+        $params[] = $article_id;
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
+
 
 
     // Update article visibility (admin approve/reject)
@@ -70,7 +84,8 @@ class Article extends Database {
         return $this->executeNonQuery($sql, [$id]);
     }
 
-    // Notifications
+    /* ===================== NOTIFICATIONS ===================== */
+
     public function addNotification($user_id, $message) {
         $sql = "INSERT INTO notifications (user_id, message) VALUES (?, ?)";
         return $this->executeNonQuery($sql, [$user_id, $message]);
@@ -86,7 +101,8 @@ class Article extends Database {
         return $this->executeNonQuery($sql, [$notification_id]);
     }
 
-    // Edit requests
+    /* ===================== EDIT REQUESTS ===================== */
+
     public function createEditRequest($article_id, $requester_id, $message = null) {
         $sql = "INSERT INTO edit_requests (article_id, requester_id, message) VALUES (?, ?, ?)";
         return $this->executeNonQuery($sql, [$article_id, $requester_id, $message]);
@@ -112,17 +128,19 @@ class Article extends Database {
         return $this->executeQuerySingle($sql, [$request_id]);
     }
 
-    // Shared articles
+    /* ===================== SHARED ARTICLES ===================== */
+
     public function grantSharedArticle($article_id, $user_id) {
         $sql = "INSERT INTO shared_articles (article_id, user_id) VALUES (?, ?)";
         return $this->executeNonQuery($sql, [$article_id, $user_id]);
     }
 
     public function getSharedArticles($user_id) {
-        $sql = "SELECT a.*, u.username, u.is_admin
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                 FROM shared_articles s
                 JOIN articles a ON s.article_id = a.article_id
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 WHERE s.user_id = ?
                 ORDER BY s.granted_at DESC";
         return $this->executeQuery($sql, [$user_id]);
@@ -137,11 +155,14 @@ class Article extends Database {
         return ($c && isset($c['cnt']) && $c['cnt'] > 0);
     }
 
+    /* ===================== ADMIN / FEEDS ===================== */
+
     // Fetch pending articles
     public function getPendingArticles() {
-        $sql = "SELECT a.*, u.username, u.is_admin
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                 FROM articles a
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 WHERE a.is_active = 0
                 ORDER BY a.created_at DESC";
         return $this->executeQuery($sql);
@@ -149,16 +170,17 @@ class Article extends Database {
 
     // Fetch all articles regardless of status
     public function getAllArticles() {
-        $sql = "SELECT a.*, u.username, u.is_admin
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name
                 FROM articles a
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 ORDER BY a.created_at DESC";
         return $this->executeQuery($sql);
     }
 
     // Feed for user (own + shared + others)
     public function getFeedForUser($user_id) {
-        $sql = "SELECT a.*, u.username, u.is_admin,
+        $sql = "SELECT a.*, u.username, u.is_admin, c.name AS category_name,
                 CASE
                     WHEN a.author_id = ? THEN 'own'
                     WHEN s.user_id IS NOT NULL THEN 'shared'
@@ -167,8 +189,27 @@ class Article extends Database {
                 FROM articles a
                 LEFT JOIN shared_articles s ON a.article_id = s.article_id AND s.user_id = ?
                 JOIN school_publication_users u ON a.author_id = u.user_id
+                LEFT JOIN categories c ON a.category_id = c.category_id
                 ORDER BY a.created_at DESC";
         return $this->executeQuery($sql, [$user_id, $user_id]);
+    }
+
+    /* ===================== CATEGORIES ===================== */
+
+    public function getCategories() {
+        $stmt = $this->pdo->query("SELECT * FROM categories ORDER BY name ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+
+    public function addCategory($name) {
+        $stmt = $this->pdo->prepare("INSERT INTO categories (name) VALUES (:name)");
+        return $stmt->execute([':name' => $name]);
+    }
+
+    public function deleteCategory($id) {
+        $stmt = $this->pdo->prepare("DELETE FROM categories WHERE category_id=?");
+        return $stmt->execute([$id]);
     }
 
 }

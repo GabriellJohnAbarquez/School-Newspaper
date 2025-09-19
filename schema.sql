@@ -47,3 +47,17 @@ CREATE TABLE IF NOT EXISTS shared_articles (
     FOREIGN KEY (article_id) REFERENCES articles(article_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES school_publication_users(user_id) ON DELETE CASCADE
 );
+
+-- Categories table
+CREATE TABLE categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add foreign key to articles
+ALTER TABLE articles 
+ADD COLUMN category_id INT NULL,
+ADD CONSTRAINT fk_articles_category 
+FOREIGN KEY (category_id) REFERENCES categories(category_id) 
+ON DELETE SET NULL;

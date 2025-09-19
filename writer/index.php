@@ -5,6 +5,9 @@ if ($userObj->isAdmin()) { header("Location: ../admin/index.php"); exit; }
 
 // Fetch all articles for writer feed (own + shared + others)
 $articles = $articleObj->getFeedForUser($_SESSION['user_id']);
+
+// Fetch categories for dropdown
+$categories = $articleObj->getCategories();
 ?>
 <!doctype html>
 <html>
@@ -32,6 +35,16 @@ $articles = $articleObj->getFeedForUser($_SESSION['user_id']);
       <textarea name="description" class="form-control mb-2" placeholder="Write your article..." required></textarea>
       <input type="file" name="image" class="form-control mb-2" accept="image/*">
       <input type="text" name="image_url" class="form-control mb-2" placeholder="Or paste image URL (optional)">
+
+      <select name="category_id" class="form-control mb-2" required>
+        <option value="">-- Select Category --</option>
+        <?php foreach ($categories as $c): ?>
+          <option value="<?php echo $c['category_id']; ?>">
+            <?php echo htmlspecialchars($c['name']); ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+
       <button class="btn btn-primary" name="insertArticleBtn">Submit Article</button>
     </form>
   </div>
@@ -44,7 +57,6 @@ $articles = $articleObj->getFeedForUser($_SESSION['user_id']);
   <div class="card">
     <?php 
     $img = !empty($a['image_path']) ? $a['image_path'] : (!empty($a['image_url']) ? $a['image_url'] : null);
-
     if ($img): ?>
       <img src="<?php echo htmlspecialchars($img); ?>" class="card-img-top mb-2">
     <?php endif; ?>
@@ -59,7 +71,12 @@ $articles = $articleObj->getFeedForUser($_SESSION['user_id']);
           if (!empty($a['is_admin']) && $a['is_admin']==1) echo '<span class="badge bg-primary badge-status">Admin</span>';
         ?>
       </h6>
-      <div class="small text-muted"><?php echo htmlspecialchars($a['username']); ?> • <?php echo $a['created_at']; ?></div>
+      <div class="small text-muted">
+        <?php echo htmlspecialchars($a['username']); ?> • <?php echo $a['created_at']; ?>
+      </div>
+      <?php if (!empty($a['category_name'])): ?>
+        <div><span class="badge badge-secondary">Category: <?php echo htmlspecialchars($a['category_name']); ?></span></div>
+      <?php endif; ?>
       <p><?php echo nl2br(htmlspecialchars($a['content'])); ?></p>
 
       <?php
@@ -72,7 +89,6 @@ $articles = $articleObj->getFeedForUser($_SESSION['user_id']);
               <button class="btn btn-sm btn-danger" name="deleteArticleBtn" onclick="return confirm('Are you sure you want to delete this article?');">Delete</button>
             </form>
           <?php else: ?>
-            <!-- Shared articles: optional Edit if allowed -->
             <a href="edit_article.php?id=<?php echo $a['article_id']; ?>" class="btn btn-sm btn-warning">Edit</a>
           <?php endif;
       else: ?>

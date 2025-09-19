@@ -121,7 +121,9 @@ if (isset($_POST['insertArticleBtn']) || isset($_POST['insertAdminArticleBtn']))
         exit;
     }
 
-    if ($articleObj->createArticle($title, $description, $author_id, $image_path, $is_admin)) {
+    $category_id = $_POST['category_id'] ?? null;
+
+    if ($articleObj->createArticle($title, $description, $author_id, $image_path, $is_admin, $category_id)) {
         $_SESSION['message'] = "Article submitted successfully.";
         $_SESSION['status'] = '200';
         header("Location: " . ($is_admin ? '../admin/index.php' : '../writer/index.php'));
@@ -149,7 +151,9 @@ if (isset($_POST['editArticleBtn'])) {
         exit;
     }
 
-    if ($articleObj->updateArticle($article_id, $title, $description, $image_path)) {
+    $category_id = $_POST['category_id'] ?? null;
+
+    if ($articleObj->updateArticle($article_id, $title, $description, $image_path, $category_id)) {
         $_SESSION['message'] = "Article updated successfully.";
         $_SESSION['status'] = '200';
         header("Location: " . ($_SERVER['HTTP_REFERER'] ?? 'index.php'));
@@ -281,4 +285,45 @@ if (isset($_POST['markNotificationRead'])) {
     header("Location: " . ($_SERVER['HTTP_REFERER'] ?? '../writer/index.php'));
     exit;
 }
+
+// === CATEGORY MANAGEMENT ===
+if (isset($_POST['addCategoryBtn'])) {
+    $name = trim($_POST['category_name'] ?? '');
+
+    if ($name !== '') {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO categories (name) VALUES (?)");
+            $stmt->execute([$name]);
+            $_SESSION['message'] = "Category added successfully.";
+            $_SESSION['status'] = '200';
+        } catch (PDOException $e) {
+            $_SESSION['message'] = "Failed to add category (maybe duplicate).";
+            $_SESSION['status'] = '400';
+        }
+    } else {
+        $_SESSION['message'] = "Category name cannot be empty.";
+        $_SESSION['status'] = '400';
+    }
+
+    header("Location: ../admin/index.php");
+    exit;
+}
+
+if (isset($_POST['deleteCategoryBtn'])) {
+    $id = (int) ($_POST['category_id'] ?? 0);
+
+    if ($id > 0) {
+        $stmt = $pdo->prepare("DELETE FROM categories WHERE category_id = ?");
+        $stmt->execute([$id]);
+        $_SESSION['message'] = "Category deleted.";
+        $_SESSION['status'] = '200';
+    } else {
+        $_SESSION['message'] = "Invalid category ID.";
+        $_SESSION['status'] = '400';
+    }
+
+    header("Location: ../admin/index.php");
+    exit;
+}
+
 ?>
